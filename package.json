@@ -1,0 +1,29 @@
+{
+  "name": "dsh-agentcore-light",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Drives an AgentCore-Light lamp from DeepSeek Harness turn state.",
+  "exports": {
+    ".": "./index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "bridge.js",
+    "transport.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "docs",
+    "icon.svg"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
