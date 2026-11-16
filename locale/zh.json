@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "AgentCore Light 状态灯",
+    "description": "把 DeepSeek Harness 的回合状态映射到 AgentCore-Light 状态灯：工作时黄色，等待授权时黄色常亮，成功绿色，失败红色。",
+    "detail": "docs/DETAIL.md"
+  }
+}

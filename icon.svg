@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="AgentCore Light status">
+  <circle cx="24" cy="24" r="20" fill="none" stroke="#2b2f38" stroke-width="1.5" stroke-dasharray="2 3"/>
+  <circle cx="35.3" cy="35.3" r="4" fill="#5b6270"/>
+  <circle cx="12.7" cy="35.3" r="4" fill="#5b6270"/>
+  <circle cx="8" cy="24" r="4" fill="#5b6270"/>
+  <circle cx="12.7" cy="12.7" r="4" fill="#5b6270"/>
+  <circle cx="24" cy="8" r="4" fill="#5b6270"/>
+  <circle cx="35.3" cy="12.7" r="4" fill="#5b6270"/>
+  <circle cx="40" cy="24" r="4" fill="#3fbf6f"/>
+  <circle cx="24" cy="40" r="4" fill="#5b6270"/>
+</svg>

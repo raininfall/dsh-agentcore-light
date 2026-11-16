@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "AgentCore Light status",
+    "description": "Mirrors DeepSeek Harness turn state on an AgentCore-Light lamp: busy while working, yellow while awaiting your approval, green on success, red on failure.",
+    "detail": "docs/DETAIL.md"
+  }
+}

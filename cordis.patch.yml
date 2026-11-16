@@ -1,0 +1,3 @@
+- insert:
+    - id: agentcore-light-status
+      name: dsh-agentcore-light
