@@ -54,13 +54,24 @@ test('an undecided approval does not survive its turn ending', () => {
   assert.equal(bridge.desired(), 'IDLE')
 })
 
-test('a disposed agent leaves nothing behind', () => {
-  const { send } = sink(); const bridge = createBridge(send)
+test('disposal resets the lamp instead of leaving a stale state', () => {
+  const { sent, send } = sink(); const bridge = createBridge(send)
   const agent = root('s1')
   bridge.onAgentCreated({ agent })
   bridge.onSessionEvent(agent.session, started())
   bridge.onAgentDisposed({ agent })
   assert.equal(bridge.desired(), undefined)
+  assert.deepEqual(sent, ['BUSY', 'IDLE'])
+})
+
+test('a session that emits after disposal is treated as live again', () => {
+  const { sent, send } = sink(); const bridge = createBridge(send)
+  const agent = root('s1')
+  bridge.onAgentCreated({ agent })
+  bridge.onSessionEvent(agent.session, started())
+  bridge.onAgentDisposed({ agent })
+  bridge.onSessionEvent(agent.session, ended({ kind: 'completed' }))
+  assert.deepEqual(sent, ['BUSY', 'IDLE', 'SUCCESS'])
 })
 
 test('a root session first seen through events is tracked', () => {

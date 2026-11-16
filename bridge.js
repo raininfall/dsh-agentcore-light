@@ -89,6 +89,9 @@ export function createBridge(send) {
     onAgentDisposed({ agent }) {
       sessions.delete(agent.session.id)
       approvals.delete(agent.session.id)
+      // Nothing this session reported can still be true, so a lamp left on
+      // WAIT_CONFIRM or BUSY is reset rather than kept.
+      send(desired() ?? STATE.IDLE)
     },
 
     onSessionEvent(session, event) {

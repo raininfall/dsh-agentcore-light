@@ -481,3 +481,20 @@ Remove `.agentcore-work/` from the DSH checkout (the permanent copy is the sourc
 - [ ] **Step 8: Report**
 
 State the installed path, the plugin row title, test results, what the user confirmed physically, and the limitation about AgentCore-Light's own bundled DeepSeek Harness hook (do not install both).
+
+---
+
+## Landed deviations
+
+Recorded after implementation; the steps above are the plan as approved, these are what changed and why.
+
+1. **`node --test test/` does not work on Node 24.22.** It resolves the directory as a module path. The package script and every verification command use bare `node --test` (default discovery).
+2. **Sessions register lazily.** `agent/created` alone would miss the session that installs the bundle, because that agent already existed. `bridge.js` therefore also registers a root session on its first event, and keeps excluding subagent sessions through `session.header.origin`. Consequence: a session that emits after disposal is treated as live again — pinned by `test/bridge.test.js`.
+3. **The "settled success" test changed.** The original expected send order `['BUSY','SUCCESS','BUSY']` cannot occur while another root session runs, because the aggregate publishes `desired()`. The test now asserts `desired()` before and after the sibling finishes.
+4. **The live "quit AgentCore-Light" check was not run.** Quitting the app also stops the hooks other tools installed and changes a device the user is watching. Recovery after a failed delivery is covered instead by `test/index.test.js` ("delivery recovers once the lamp app becomes reachable") against a real server that starts closed and reopens on the same port.
+
+## Post-review fixes
+
+- Activation sends `IDLE` once, so a state left by a previous DSH run cannot outlive it.
+- Disposal publishes the remaining state, or `IDLE` when nothing is left, instead of silently keeping a stale `WAIT_CONFIRM`.
+- `port` and `timeoutMs` are validated at activation and fail the row loudly; the test-only `request` injection was removed from the public config.
