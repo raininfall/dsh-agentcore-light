@@ -1,5 +1,7 @@
 # dsh-agentcore-light
 
+English | [中文](./README.zh.md)
+
 Put your DeepSeek Harness (DSH) turns on an [AgentCore-Light](https://light.buildfpga.com/) desk lamp: yellow while an agent works, steady yellow while it waits for your approval, green when a turn succeeds, red when it fails.
 
 A DSH profile bundle. Plain ESM JavaScript, no build step, no runtime dependencies. The lamp is reached through the AgentCore-Light desktop app on the same machine (`127.0.0.1:18792`).

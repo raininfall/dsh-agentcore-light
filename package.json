@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Drives an AgentCore-Light lamp from DeepSeek Harness turn state.",
+  "license": "MIT",
   "exports": {
     ".": "./index.js",
     "./locale/*.json": "./locale/*.json",
