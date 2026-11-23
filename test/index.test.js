@@ -5,8 +5,12 @@ import { apply, name } from '../index.js'
 
 const harness = () => {
   const listeners = new Map()
-  const ctx = { on: (event, fn) => { listeners.set(event, fn); return () => listeners.delete(event) } }
-  return { ctx, listeners }
+  const disposers = []
+  const ctx = {
+    on: (event, fn) => { listeners.set(event, fn); return () => listeners.delete(event) },
+    effect: (fn) => { disposers.push(fn()) },
+  }
+  return { ctx, listeners, disposers }
 }
 
 const listening = async (received, port = 0) => {
@@ -90,4 +94,37 @@ test('delivery recovers once the lamp app becomes reachable', async () => {
   } finally {
     await close(server)
   }
+})
+
+test('the kanban inbox drives the lamp through one writer', async () => {
+  const received = []
+  const lamp = await listening(received)
+  const board = { payload: { questions: [{}], reviews: [] } }
+  const inbox = http.createServer((req, res) => {
+    res.setHeader('content-type', 'application/json')
+    res.end(JSON.stringify(board.payload))
+  })
+  await new Promise((resolve) => inbox.listen(0, '127.0.0.1', resolve))
+  const { ctx, disposers } = harness()
+  try {
+    apply(ctx, {
+      port: lamp.address().port,
+      kanbanInboxUrl: `http://127.0.0.1:${inbox.address().port}/api/inbox`,
+      kanbanPollMs: 500,
+    })
+    await until(() => received.some((item) => item.state === 'WAIT_CONFIRM'))
+    board.payload = { questions: [], reviews: [] }
+    await until(() => received.at(-1)?.state === 'SUCCESS')
+    assert.equal(received.at(-1).state, 'SUCCESS')
+  } finally {
+    for (const dispose of disposers) dispose()
+    await close(inbox)
+    await close(lamp)
+  }
+})
+
+test('an invalid kanban inbox setting fails loudly at activation', () => {
+  const { ctx } = harness()
+  assert.throws(() => apply(ctx, { kanbanInboxUrl: 'board.test' }), /kanbanInboxUrl/)
+  assert.throws(() => apply(ctx, { kanbanInboxUrl: 'http://board.test/api/inbox', kanbanPollMs: 10 }), /kanbanPollMs/)
 })

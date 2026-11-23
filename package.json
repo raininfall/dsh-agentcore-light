@@ -13,6 +13,7 @@
   "files": [
     "index.js",
     "bridge.js",
+    "inbox.js",
     "transport.js",
     "cordis.patch.yml",
     "locale/*.json",

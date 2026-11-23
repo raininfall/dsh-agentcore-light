@@ -12,14 +12,17 @@
 | --- | --- |
 | 根会话开始一个回合 | `BUSY` —— 工作中 |
 | 弹出工具授权请求 | `WAIT_CONFIRM` —— 等你确认 |
-| 该请求被应答 | `BUSY` |
+| 弹出 `ask_user_question` 提问 | `WAIT_CONFIRM` —— 等你确认 |
+| 授权或提问被应答 | `BUSY` |
+| kanban 收件箱里有待你回答的问题或待你决定的评审 | `WAIT_CONFIRM` —— 看板在等你 |
+| 收件箱清空 | 回到 `BUSY` 或上一个已结束状态 |
 | 回合正常完成 | `SUCCESS` —— 应用在 5 秒后回到 `IDLE` |
 | 回合报错或触到输出 token 上限 | `ERROR` |
 | 回合在开始任何步骤前被停止或阻塞 | `IDLE` |
 
-子 agent 会话不会驱动灯——它们的工作已经表现为父会话的 `BUSY`。子 agent 的授权请求仍然显示 `WAIT_CONFIRM`，因为要回答的人是你。
+子 agent 会话不会驱动灯——它们的工作已经表现为父会话的 `BUSY`。子 agent 的授权或提问请求仍然显示 `WAIT_CONFIRM`，因为要回答的人是你。
 
-同时有多个根会话时，授权优先于运行，运行优先于已结束。插件激活时会把灯重置为 `IDLE`，避免上一次运行遗留的状态一直亮着。
+同时有多个根会话时，「等你处理」优先于运行，运行优先于已结束。插件激活时会把灯重置为 `IDLE`，避免上一次运行遗留的状态一直亮着。
 
 ## 安装
 
@@ -64,6 +67,8 @@ dsh --profile web --dump-config | grep agentcore-light-status
   config:
     port: 18792    # AgentCore-Light 控制端口
     timeoutMs: 800 # 单次请求超时
+    kanbanInboxUrl: http://127.0.0.1:8787/api/inbox # 可选的看板收件箱
+    kanbanPollMs: 5000 # 收件箱轮询间隔
 ```
 
 保持默认端口即可。端口 `18793` 会把上报的来源改写为 `control_panel`，这些事件就不会出现在应用的 AI 活动日志里。本插件使用的来源标记是 `deepseek_harness`。
@@ -72,7 +77,8 @@ dsh --profile web --dump-config | grep agentcore-light-status
 
 ## 工作原理
 
-- 订阅 `agent/created`、`agent/disposed` 和 `session/event`（`turn/start`、`approval/asked`、`approval/decided`、`turn/end`）。
+- 订阅 `agent/created`、`agent/disposed` 和 `session/event`（`turn/start`、`approval/asked`、`approval/decided`、`tool/call`、`tool/result`、`user/message`、`turn/end`）。
+- 可选地轮询 kanban 看板收件箱（`kanbanInboxUrl`），让看板里待你回答的问题和待评审的提交进入同一个状态机，而不是让第二个写入者去抢同一盏灯。
 - 把这些事件折叠成一个设备状态：`IDLE`、`BUSY`、`WAIT_CONFIRM`、`SUCCESS` 或 `ERROR`。
 - 向 `POST http://127.0.0.1:18792/status` 发送 `{"state": ..., "source": "deepseek_harness"}`。
 - 投递是尽力而为的：同一时刻只有一个请求在途，最新状态在它后面排队，重复状态丢弃，超时 800 毫秒。应用没开、端口关闭或请求变慢都不会拖慢或弄失败一个回合。
@@ -81,7 +87,8 @@ dsh --profile web --dump-config | grep agentcore-light-status
 
 1. 启动 AgentCore-Light，确认应用里显示灯已连接。
 2. 跑一个 DSH 回合：agent 工作时灯变黄，回合结束时变绿。
-3. 打开一个工具授权提示：灯保持黄色常亮，直到你应答。
+3. 打开一个工具授权提示，或让 agent 向你提问：灯保持黄色常亮，直到你应答。
+4. 设置 `kanbanInboxUrl` 后，在看板上提出问题或提交评审：灯变黄；收件箱清空后报 `SUCCESS`（灯显示确认中时 app 会忽略 `IDLE`，`SUCCESS` 由 app 在 5 秒后转回 `IDLE`）。
 4. 停止一个回合：灯回到空闲。
 
 ## 前提与限制
@@ -104,6 +111,7 @@ dsh plugin --profile web remove dsh-agentcore-light
 | --- | --- |
 | `index.js` | 插件入口；订阅 Cordis 事件，激活时重置灯 |
 | `bridge.js` | 纯状态机，把 agent/会话事件折叠成一个设备状态 |
+| `inbox.js` | 可选的 kanban 收件箱轮询，作为状态机的输入 |
 | `transport.js` | 去重、单请求在途的 HTTP 投递 |
 | `cordis.patch.yml` | 插入 `agentcore-light-status` 行 |
 | `locale/` | 插件卡片的标题与描述（英文、中文） |

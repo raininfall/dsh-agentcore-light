@@ -12,14 +12,17 @@ A DSH profile bundle. Plain ESM JavaScript, no build step, no runtime dependenci
 | --- | --- |
 | a root session starts a turn | `BUSY` — working |
 | a tool authorization prompt opens | `WAIT_CONFIRM` — waiting for you |
-| that prompt is answered | `BUSY` |
+| a `ask_user_question` question opens | `WAIT_CONFIRM` — waiting for you |
+| that prompt or question is answered | `BUSY` |
+| the kanban inbox has an open question or a review awaiting you | `WAIT_CONFIRM` |
+| the inbox is cleared | back to `BUSY` or to the finished turn |
 | the turn completes | `SUCCESS` — the app returns to `IDLE` after 5 seconds |
 | the turn ends in an error or hits the output-token limit | `ERROR` |
 | the turn is stopped or blocked before any step | `IDLE` |
 
-Subagent sessions never drive the lamp — their work already shows as the parent's `BUSY`. An approval request from a subagent still shows `WAIT_CONFIRM`, because you are the one who has to answer it.
+Subagent sessions never drive the lamp — their work already shows as the parent's `BUSY`. An approval or question request from a subagent still shows `WAIT_CONFIRM`, because you are the one who has to answer it.
 
-With several root sessions at once, approval outranks running, and running outranks a finished turn. The lamp is reset to `IDLE` when the plugin activates, so a state left over from a previous run cannot outlive it.
+With several root sessions at once, waiting for you outranks running, and running outranks a finished turn. The lamp is reset to `IDLE` when the plugin activates, so a state left over from a previous run cannot outlive it. A wait that clears reports `SUCCESS` rather than `IDLE`, because the app ignores `IDLE` while it shows a confirmation.
 
 ## Install
 
@@ -64,6 +67,8 @@ Optional row configuration, in the profile's `cordis.patch.yml`:
   config:
     port: 18792    # AgentCore-Light control port
     timeoutMs: 800 # per-request timeout
+    kanbanInboxUrl: http://127.0.0.1:8787/api/inbox # optional board inbox
+    kanbanPollMs: 5000 # inbox poll interval
 ```
 
 Keep the default port. Port `18793` rewrites the reported source to `control_panel`, which hides these events from the app's AI activity log. The source label shown for this plugin is `deepseek_harness`.
@@ -72,7 +77,8 @@ Invalid values fail activation with a diagnostic instead of leaving a silently d
 
 ## How it works
 
-- Subscribes to `agent/created`, `agent/disposed`, and `session/event` (`turn/start`, `approval/asked`, `approval/decided`, `turn/end`).
+- Subscribes to `agent/created`, `agent/disposed`, and `session/event` (`turn/start`, `approval/asked`, `approval/decided`, `tool/call`, `tool/result`, `user/message`, `turn/end`).
+- Optionally polls a kanban board's inbox (`kanbanInboxUrl`), so open board questions and reviews drive the same state machine instead of a second writer racing for the lamp.
 - Folds them into one device state: `IDLE`, `BUSY`, `WAIT_CONFIRM`, `SUCCESS`, or `ERROR`.
 - Posts `{"state": ..., "source": "deepseek_harness"}` to `POST http://127.0.0.1:18792/status`.
 - Delivery is best effort: one request in flight, the newest state queued behind it, duplicate states dropped, an 800 ms timeout. A missing app, closed port, or slow request never delays or fails a turn.
@@ -81,7 +87,8 @@ Invalid values fail activation with a diagnostic instead of leaving a silently d
 
 1. Start AgentCore-Light and confirm it shows the lamp as connected.
 2. Run a DSH turn: the lamp turns yellow while the agent works and green when the turn ends.
-3. Open a tool authorization prompt: the lamp holds steady yellow until you answer.
+3. Open a tool authorization prompt or ask the agent a question: the lamp holds steady yellow until you answer.
+4. With `kanbanInboxUrl` set, open a board question: the lamp turns yellow, and returns to idle when the inbox empties.
 4. Stop a turn: the lamp returns to idle.
 
 ## Requirements and limits
@@ -104,6 +111,7 @@ or remove the bundle from **Settings → Plugins**. Nothing else on disk changes
 | --- | --- |
 | `index.js` | plugin entry; subscribes to Cordis events and resets the lamp on activation |
 | `bridge.js` | pure state machine from agent/session events to one device state |
+| `inbox.js` | optional kanban inbox poll that feeds the bridge |
 | `transport.js` | deduplicated, single-flight HTTP delivery to the desktop app |
 | `cordis.patch.yml` | inserts the `agentcore-light-status` row |
 | `locale/` | plugin card title and description (English, Chinese) |
