@@ -22,7 +22,7 @@ A DSH profile bundle. Plain ESM JavaScript, no build step, no runtime dependenci
 
 Subagent sessions never drive the lamp — their work already shows as the parent's `BUSY`. An approval or question request from a subagent still shows `WAIT_CONFIRM`, because you are the one who has to answer it.
 
-With several root sessions at once, waiting for you outranks running, and running outranks a finished turn. The lamp is reset to `IDLE` when the plugin activates, so a state left over from a previous run cannot outlive it. A wait that clears reports `SUCCESS` rather than `IDLE`, because the app ignores `IDLE` while it shows a confirmation.
+With several root sessions at once, waiting for you outranks running, and running outranks a finished turn. The lamp is reset to `IDLE` when the plugin activates, so a state left over from a previous run cannot outlive it; a confirmation left on the device is released with `SUCCESS` because the app ignores `IDLE` while it shows one.
 
 ## Install
 

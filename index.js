@@ -6,7 +6,7 @@
 
 import { createBridge, STATE } from './bridge.js'
 import { DEFAULT_INBOX_POLL_MS, createInboxWatch } from './inbox.js'
-import { AGENTCORE_PORT, REQUEST_TIMEOUT_MS, createTransport } from './transport.js'
+import { AGENTCORE_PORT, REQUEST_TIMEOUT_MS, SOURCE, createTransport } from './transport.js'
 
 /** Plugin row name registered by `cordis.patch.yml`. */
 export const name = 'agentcore-light-status'
@@ -28,6 +28,32 @@ function resolveOptions(config) {
     throw new Error(`dsh-agentcore-light: "timeoutMs" must be a positive number, got ${JSON.stringify(config.timeoutMs)}`)
   }
   return { port, timeoutMs }
+}
+
+/**
+ * Release a confirmation left on the device by an earlier run. The app ignores
+ * `IDLE` while it shows `WAIT_CONFIRM`, so a restart would otherwise keep the
+ * lamp yellow until the next turn starts.
+ * @param port - the lamp app's HTTP port.
+ * @param timeoutMs - per-request timeout.
+ * @returns nothing; every failure leaves the lamp untouched.
+ */
+async function releaseStaleWait(port, timeoutMs) {
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/health`, { signal: AbortSignal.timeout(timeoutMs) })
+    if (!response.ok) return
+    const body = await response.json()
+    if (body.desired_state !== STATE.WAIT_CONFIRM) return
+    await fetch(`http://127.0.0.1:${port}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state: STATE.SUCCESS, source: SOURCE }),
+      signal: AbortSignal.timeout(timeoutMs),
+    })
+  } catch (error) {
+    // The app may be closed, updating, or slow; the next turn reports again.
+    void error
+  }
 }
 
 /**
@@ -58,7 +84,8 @@ function resolveInbox(config) {
  * @param config - optional `port`, `timeoutMs`, `kanbanInboxUrl`, and `kanbanPollMs`, validated at activation.
  */
 export function apply(ctx, config = {}) {
-  const transport = createTransport(resolveOptions(config))
+  const { port, timeoutMs } = resolveOptions(config)
+  const transport = createTransport({ port, timeoutMs })
   const bridge = createBridge(transport.send)
   const inbox = resolveInbox(config)
   ctx.on('agent/created', (payload) => bridge.onAgentCreated(payload))
@@ -72,4 +99,5 @@ export function apply(ctx, config = {}) {
     }, 'agentcore-light: kanban inbox')
   }
   transport.send(STATE.IDLE)
+  void releaseStaleWait(port, timeoutMs)
 }

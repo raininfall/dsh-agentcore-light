@@ -13,8 +13,13 @@ const harness = () => {
   return { ctx, listeners, disposers }
 }
 
-const listening = async (received, port = 0) => {
+const listening = async (received, port = 0, desired = 'IDLE') => {
   const server = http.createServer((req, res) => {
+    if (req.method === 'GET') {
+      res.setHeader('content-type', 'application/json')
+      res.end(JSON.stringify({ desired_state: desired }))
+      return
+    }
     let body = ''
     req.on('data', (chunk) => { body += chunk })
     req.on('end', () => { received.push(JSON.parse(body)); res.end('{"ok":true}') })
@@ -43,6 +48,22 @@ test('activation clears a stale lamp state before any turn', async () => {
     assert.equal(name, 'agentcore-light-status')
     await until(() => received.length === 1)
     assert.deepEqual(received, [{ state: 'IDLE', source: 'deepseek_harness' }])
+  } finally {
+    await close(server)
+  }
+})
+
+test('activation releases a confirmation left by an earlier run', async () => {
+  const received = []
+  const server = await listening(received, 0, 'WAIT_CONFIRM')
+  const { ctx } = harness()
+  try {
+    apply(ctx, { port: server.address().port })
+    await until(() => received.length === 2)
+    assert.deepEqual(received, [
+      { state: 'IDLE', source: 'deepseek_harness' },
+      { state: 'SUCCESS', source: 'deepseek_harness' },
+    ])
   } finally {
     await close(server)
   }
